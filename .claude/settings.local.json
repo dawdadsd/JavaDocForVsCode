@@ -16,7 +16,10 @@
       "Bash(mkdir:*)",
       "Bash(ping:*)",
       "Bash(curl:*)",
-      "Bash(taskkill /F /PID 5868 /PID 42000)"
+      "Bash(taskkill /F /PID 5868 /PID 42000)",
+      "Bash(pnpm run compile:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm run package:*)"
     ]
   }
 }

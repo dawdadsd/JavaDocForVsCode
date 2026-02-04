@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    // ========== 目标环境 ==========
+    // ES2022: 使用现代 JavaScript 特性（如 at()、Object.hasOwn()）
+    "target": "ES2022",
+
+    // NodeNext: 使用 Node.js 的模块系统（支持 .js 扩展名的 import）
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    // 可用的 JavaScript 标准库
+    "lib": ["ES2022"],
+
+    // ========== 严格模式（对新手很重要！）==========
+    // 开启所有严格类型检查
+    "strict": true,
+
+    // 访问数组元素时，类型包含 undefined（防止越界访问）
+    // 例如: arr[0] 的类型是 T | undefined，而不是 T
+    "noUncheckedIndexedAccess": true,
+
+    // 可选属性必须精确匹配（不能多传属性）
+    "exactOptionalPropertyTypes": true,
+
+    // 重写父类方法必须加 override 关键字
+    "noImplicitOverride": true,
+
+    // switch 语句必须处理 break 或 return
+    "noFallthroughCasesInSwitch": true,
+
+    // 文件名大小写必须一致（Mac/Windows 文件系统不区分大小写，但 Linux 区分）
+    "forceConsistentCasingInFileNames": true,
+
+    // ========== 输出配置 ==========
+    // 编译后的 JS 文件放在 out 目录
+    "outDir": "./out",
+
+    // 源代码在 src 目录
+    "rootDir": "./src",
+
+    // 生成 .d.ts 类型声明文件
+    "declaration": true,
+
+    // 生成 source map（调试时可以看到 TS 源码而非编译后的 JS）
+    "sourceMap": true,
+
+    // ========== VS Code 扩展特定配置 ==========
+    // 跳过依赖库的类型检查（加快编译速度）
+    "skipLibCheck": true,
+
+    // 允许 import 没有默认导出的模块
+    "esModuleInterop": true,
+
+    // 每个文件独立编译（更好的错误隔离）
+    "isolatedModules": true
+  },
+
+  // 包含 src 目录下的所有文件
+  "include": ["src/**/*"],
+
+  // 排除 node_modules 和输出目录
+  "exclude": ["node_modules", "out"]
+}
