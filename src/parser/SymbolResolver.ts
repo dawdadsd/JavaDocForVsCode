@@ -16,8 +16,8 @@
  * 3. 省力：不需要自己写 Java 语法解析器
  */
 
-import * as vscode from 'vscode';
-import type { DocumentSymbol, Uri } from 'vscode';
+import * as vscode from "vscode";
+import type { DocumentSymbol, Uri } from "vscode";
 
 /**
  * 获取文档中的所有符号
@@ -35,8 +35,8 @@ export async function resolveSymbols(uri: Uri): Promise<DocumentSymbol[]> {
     // 调用 VS Code 内置命令获取符号
     // 泛型参数 <DocumentSymbol[]> 指定返回类型
     const symbols = await vscode.commands.executeCommand<DocumentSymbol[]>(
-      'vscode.executeDocumentSymbolProvider',
-      uri
+      "vscode.executeDocumentSymbolProvider",
+      uri,
     );
 
     // 可能返回 undefined（例如没有安装 Java 语言扩展）
@@ -47,7 +47,7 @@ export async function resolveSymbols(uri: Uri): Promise<DocumentSymbol[]> {
     // 【为什么不抛出异常？】
     // 解析失败不应该导致整个扩展崩溃
     // 返回空数组，让上层代码优雅降级
-    console.error('[SymbolResolver] Failed to resolve symbols:', error);
+    console.error("[SymbolResolver] Failed to resolve symbols:", error);
     return [];
   }
 }
@@ -69,5 +69,17 @@ export function isMethodSymbol(symbol: DocumentSymbol): boolean {
   return (
     symbol.kind === vscode.SymbolKind.Method ||
     symbol.kind === vscode.SymbolKind.Constructor
+  );
+}
+
+/**
+ * check symbol is field or constant
+ * @param symbol document symbol
+ * @returns boolean
+ */
+export function isFieldSymbol(symbol: DocumentSymbol): boolean {
+  return (
+    symbol.kind === vscode.SymbolKind.Field ||
+    symbol.kind === vscode.SymbolKind.Constant
   );
 }

@@ -18,12 +18,14 @@ import {
   resolveSymbols,
   isClassLikeSymbol,
   isMethodSymbol,
+  isFieldSymbol,
 } from "./SymbolResolver.js";
 import { parseTagTable } from "./TagParser.js";
 import { gitService } from "../services/GitService.js";
 import type {
   ClassDoc,
   MethodDoc,
+  FieldDoc,
   TagTable,
   AccessModifier,
   GitAuthorInfo,
@@ -87,6 +89,13 @@ export class JavaDocParser {
       .filter((m): m is MethodDoc => m !== null) // 过滤掉解析失败的
       .sort((a, b) => a.startLine - b.startLine); // 按行号排序
 
+    // 步骤 4.5：解析每个字段的 Javadoc
+    const fields = flattenedSymbols
+      .filter((fs) => isFieldSymbol(fs.symbol))
+      .map((fs) => this.parseField(text, fs))
+      .filter((f): f is FieldDoc => f !== null)
+      .sort((a, b) => a.startLine - b.startLine);
+
     // 步骤 5：获取 Git 信息（异步，不阻塞）
     const gitInfo = await this.getGitInfo(filePath, classLine);
 
@@ -96,6 +105,7 @@ export class JavaDocParser {
       packageName,
       filePath: FilePath(filePath),
       methods,
+      fields,
       gitInfo,
       javadocAuthor: classJavadoc.author,
       javadocSince: classJavadoc.since,
@@ -176,8 +186,12 @@ export class JavaDocParser {
           symbol,
           belongsTo: parentName || "Unknown",
         });
+      } else if (isFieldSymbol(symbol)) {
+        result.push({
+          symbol,
+          belongsTo: parentName || "Unknown",
+        });
       }
-      // 忽略其他类型（字段、枚举常量等）
     }
 
     return result;
@@ -241,6 +255,52 @@ export class JavaDocParser {
     } catch (error) {
       console.error(
         `[JavaDocParser] Failed to parse method: ${flattened.symbol.name}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 解析单个字段
+   *
+   * @param text - 文件完整文本
+   * @param flattened - 扁平化后的字段符号
+   * @returns 字段文档，解析失败返回 null
+   */
+  private parseField(
+    text: string,
+    flattened: FlattenedSymbol,
+  ): FieldDoc | null {
+    try {
+      const { symbol, belongsTo } = flattened;
+      const lines = text.split("\n");
+      const startLine = LineNumber(
+        symbol.selectionRange?.start.line ?? symbol.range.start.line,
+      );
+      const lineText = lines[startLine]?.trim() ?? "";
+      const rawComment = this.extractComment(text, startLine);
+      const hasComment = rawComment.length > 0;
+      const description = hasComment ? this.cleanComment(rawComment) : "";
+      const isConstant =
+        lineText.includes("static") && lineText.includes("final");
+      const accessModifier = this.extractAccessModifierFromLine(lineText);
+      const fieldType = symbol.detail || this.extractFieldType(lineText);
+
+      return {
+        name: symbol.name,
+        type: fieldType,
+        signature: lineText,
+        startLine,
+        hasComment,
+        description,
+        isConstant,
+        accessModifier,
+        belongsTo,
+      };
+    } catch (error) {
+      console.error(
+        `[JavaDocParser] Failed to parse field: ${flattened.symbol.name}`,
         error,
       );
       return null;
@@ -425,6 +485,20 @@ export class JavaDocParser {
   private extractClassNameFromText(text: string): string {
     const match = /(?:class|interface|enum)\s+(\w+)/.exec(text);
     return match?.[1] ?? "Unknown";
+  }
+
+  /**
+   * 从字段声明行提取类型
+   * 例如: "private static final int MAX_SIZE = 100;" -> "int"
+   */
+  private extractFieldType(line: string): string {
+    const withoutAssign = line.split("=")[0] ?? "";
+    const withoutSemicolon = withoutAssign.replace(/;$/, "").trim();
+    const parts = withoutSemicolon.split(/\s+/);
+    if (parts.length >= 2) {
+      return parts[parts.length - 2] ?? "unknown";
+    }
+    return "unknown";
   }
 
   /**
