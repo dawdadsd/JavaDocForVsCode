@@ -107,7 +107,18 @@ export declare class JavaDocParser {
     private cleanComment;
     /**
      * 提取完整的方法签名（处理跨行声明）
+     *
+     * Spring Controller 方法带多个注解参数时，签名可能跨越 8-10 行，例如：
+     *   public ResponseEntity<User> updateUser(
+     *       @PathVariable Long id,
+     *       @RequestBody @Valid UserUpdateDTO dto,
+     *       @RequestParam(required = false) String reason,
+     *       @AuthenticationPrincipal UserDetails principal
+     *   ) {
+     *
+     * 上限设为 15 行，覆盖绝大多数实际方法签名
      */
+    private static readonly MAX_SIGNATURE_LINES;
     private extractFullSignature;
     /**
      * 从代码行中提取方法签名（去除方法体）

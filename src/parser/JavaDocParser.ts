@@ -470,14 +470,30 @@ export class JavaDocParser {
 
   /**
    * 提取完整的方法签名（处理跨行声明）
+   *
+   * Spring Controller 方法带多个注解参数时，签名可能跨越 8-10 行，例如：
+   *   public ResponseEntity<User> updateUser(
+   *       @PathVariable Long id,
+   *       @RequestBody @Valid UserUpdateDTO dto,
+   *       @RequestParam(required = false) String reason,
+   *       @AuthenticationPrincipal UserDetails principal
+   *   ) {
+   *
+   * 上限设为 15 行，覆盖绝大多数实际方法签名
    */
+  private static readonly MAX_SIGNATURE_LINES = 15;
+
   private extractFullSignature(lines: string[], startLine: number): string {
     let signature = "";
     let lineIndex = startLine;
     let parenDepth = 0;
     let foundOpenParen = false;
+    const maxLine = Math.min(
+      lines.length,
+      startLine + JavaDocParser.MAX_SIGNATURE_LINES,
+    );
 
-    while (lineIndex < lines.length) {
+    while (lineIndex < maxLine) {
       const line = lines[lineIndex] ?? "";
 
       for (const char of line) {
@@ -496,8 +512,6 @@ export class JavaDocParser {
 
       signature += " ";
       lineIndex++;
-
-      if (lineIndex - startLine > 5) break;
     }
 
     return signature.replace(/\s+/g, " ").trim();
