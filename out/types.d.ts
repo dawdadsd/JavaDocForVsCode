@@ -114,6 +114,7 @@ export interface ClassDoc {
     readonly gitInfo?: GitAuthorInfo | undefined;
     readonly javadocAuthor?: string | undefined;
     readonly javadocSince?: string | undefined;
+    readonly fields: readonly FieldDoc[];
 }
 /**
  * Extension → Webview 的下行消息
@@ -132,6 +133,20 @@ export type DownstreamMessage = {
 } | {
     readonly type: "clearView";
 };
+/**
+ * File/Content Document - Column full message
+ */
+export interface FieldDoc {
+    readonly name: string;
+    readonly type: string;
+    readonly signature: string;
+    readonly startLine: LineNumber;
+    readonly hasComment: boolean;
+    readonly description: string;
+    readonly isConstant: boolean;
+    readonly accessModifier: AccessModifier;
+    readonly belongsTo: string;
+}
 /**
  * Webview → Extension 的上行消息
  */

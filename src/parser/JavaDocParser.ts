@@ -14,6 +14,7 @@
 
 import * as vscode from "vscode";
 import type { TextDocument, DocumentSymbol } from "vscode";
+import * as path from "path";
 import {
   resolveSymbols,
   isClassLikeSymbol,
@@ -51,7 +52,11 @@ export class JavaDocParser {
   private readonly javadocPattern = /\/\*\*[\s\S]*?\*\//;
 
   // 匹配 Java 注解 @Override, @Transactional 等
-  private readonly annotationPattern = /^\s*@\w+/;
+  private readonly annotationPattern = /^\s*@[\w.]+/;
+
+  // 顶层类型声明（class/interface/enum/record/@interface）匹配
+  private readonly topLevelTypePattern =
+    /^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:public|protected|private|abstract|final|static|sealed|non-sealed|strictfp)\s+)*(?:class|interface|enum|record|@interface)\s+([A-Za-z_$][\w$]*)\b/;
 
   /**
    * 解析 Java 文档
@@ -66,15 +71,27 @@ export class JavaDocParser {
     const filePath = document.uri.fsPath;
 
     // 步骤 2：提取类信息
-    const classSymbol = this.findClassSymbol(symbols);
-    const className = classSymbol?.name ?? this.extractClassNameFromText(text);
+    const classSymbol = this.findClassSymbol(symbols, filePath);
+    const fallbackClassInfo = classSymbol
+      ? null
+      : this.extractPrimaryTypeInfoFromText(text, filePath);
+
+    const className =
+      classSymbol?.name ??
+      fallbackClassInfo?.className ??
+      this.extractClassNameFromText(text);
     const packageName = this.extractPackageName(text);
-    const classLine = classSymbol?.range.start.line ?? 0;
+    const classLine =
+      classSymbol?.selectionRange?.start.line ??
+      classSymbol?.range.start.line ??
+      fallbackClassInfo?.classLine ??
+      0;
 
     // 提取类注释
-    const classComment = classSymbol
-      ? this.extractComment(text, classSymbol.range.start.line)
-      : "";
+    const classComment =
+      (classSymbol ? this.extractComment(text, classLine) : "") ||
+      fallbackClassInfo?.classComment ||
+      "";
 
     // 解析类注释中的 @author 和 @since
     const classJavadoc = this.parseClassJavadoc(classComment);
@@ -361,42 +378,61 @@ export class JavaDocParser {
    */
   private extractComment(text: string, targetLine: number): string {
     const lines = text.split("\n");
-    let searchLine = targetLine - 1;
 
-    // 向上跳过空行和注解
-    while (searchLine >= 0) {
-      const line = lines[searchLine]?.trim() ?? "";
+    // 从目标行向上找最近的 "*/"，并要求注释后到目标行之间仅包含空行或注解块。
+    for (let endLine = targetLine - 1; endLine >= 0; endLine--) {
+      const trimmed = lines[endLine]?.trim() ?? "";
+      if (trimmed === "") continue;
+      if (!trimmed.endsWith("*/")) continue;
 
-      // 空行或注解：继续向上
-      if (line === "" || this.annotationPattern.test(line)) {
-        searchLine--;
-        continue;
+      const between = lines.slice(endLine + 1, targetLine);
+      if (!this.onlyBlankOrAnnotations(between)) continue;
+
+      // 从 endLine 向上找对应的 "/**"
+      for (let startLine = endLine; startLine >= 0; startLine--) {
+        const line = lines[startLine] ?? "";
+        if (line.includes("/**")) {
+          return lines.slice(startLine, endLine + 1).join("\n");
+        }
+        // 遇到另一个块注释结束，说明不在同一个注释块内了
+        if (startLine !== endLine && line.includes("*/")) break;
       }
-
-      // 找到注释结束标记
-      if (line.endsWith("*/")) {
-        break;
-      }
-
-      // 遇到其他内容（代码），说明没有 Javadoc
-      return "";
-    }
-
-    if (searchLine < 0) return "";
-
-    // 从 */ 向上查找 /**
-    const endLine = searchLine;
-    while (searchLine >= 0) {
-      const line = lines[searchLine] ?? "";
-      if (line.includes("/**")) {
-        // 找到了，提取这段注释
-        const commentLines = lines.slice(searchLine, endLine + 1);
-        return commentLines.join("\n");
-      }
-      searchLine--;
     }
 
     return "";
+  }
+
+  /**
+   * 判断一段代码是否仅由空行或注解（含多行注解参数）构成
+   */
+  private onlyBlankOrAnnotations(lines: readonly string[]): boolean {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i]?.trim() ?? "";
+      if (line === "") {
+        i++;
+        continue;
+      }
+
+      if (!this.annotationPattern.test(line)) {
+        return false;
+      }
+
+      // 处理多行注解：@Anno( ... ) 可能跨多行
+      const openParens = lines[i]?.match(/\(/g)?.length ?? 0;
+      const closeParens = lines[i]?.match(/\)/g)?.length ?? 0;
+      let parenDepth = openParens - closeParens;
+      i++;
+
+      while (i < lines.length && parenDepth > 0) {
+        const next = lines[i] ?? "";
+        const nextOpen = next.match(/\(/g)?.length ?? 0;
+        const nextClose = next.match(/\)/g)?.length ?? 0;
+        parenDepth += nextOpen - nextClose;
+        i++;
+      }
+    }
+    return true;
   }
 
   /**
@@ -475,8 +511,14 @@ export class JavaDocParser {
    */
   private findClassSymbol(
     symbols: readonly DocumentSymbol[],
+    filePath: string,
   ): DocumentSymbol | undefined {
-    return symbols.find((s) => isClassLikeSymbol(s));
+    const classLikes = symbols.filter((s) => isClassLikeSymbol(s));
+    if (classLikes.length === 0) return undefined;
+
+    const baseName = path.basename(filePath, path.extname(filePath));
+    const matched = classLikes.find((s) => s.name === baseName);
+    return matched ?? classLikes[0];
   }
 
   /**
@@ -485,6 +527,151 @@ export class JavaDocParser {
   private extractClassNameFromText(text: string): string {
     const match = /(?:class|interface|enum)\s+(\w+)/.exec(text);
     return match?.[1] ?? "Unknown";
+  }
+
+  /**
+   * 当符号解析失败时，从源码文本中提取“主类型”(top-level)信息
+   *
+   * - 只识别 braceDepth===0 的类型声明，避免误选内部类
+   * - 优先选择与文件名同名的类型（常见 Java 约定）
+   */
+  private extractPrimaryTypeInfoFromText(
+    text: string,
+    filePath: string,
+  ): { className: string; classLine: number; classComment: string } {
+    const lines = text.split("\n");
+    const baseName = path.basename(filePath, path.extname(filePath));
+
+    let braceDepth = 0;
+    let state: ParseState = {
+      inBlockComment: false,
+      inString: false,
+      inChar: false,
+    };
+
+    let first: { name: string; line: number } | null = null;
+    let preferred: { name: string; line: number } | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const rawLine = lines[i] ?? "";
+      const parsed = this.parseLineForStructure(rawLine, state);
+      state = parsed.state;
+
+      if (braceDepth === 0) {
+        const match = this.topLevelTypePattern.exec(parsed.code);
+        if (match?.[1]) {
+          const name = match[1];
+          const line = i;
+
+          first ??= { name, line };
+          if (name === baseName) {
+            preferred = { name, line };
+            break;
+          }
+        }
+      }
+
+      braceDepth += parsed.openBraces - parsed.closeBraces;
+    }
+
+    const chosen = preferred ?? first;
+    const className = chosen?.name ?? "Unknown";
+    const classLine = chosen?.line ?? 0;
+    const classComment = this.extractComment(text, classLine);
+    return { className, classLine, classComment };
+  }
+
+  /**
+   * 用于顶层扫描时剔除注释/字符串，避免 braceDepth 计算误差
+   */
+  private parseLineForStructure(
+    line: string,
+    state: ParseState,
+  ): { code: string; openBraces: number; closeBraces: number; state: ParseState } {
+    let code = "";
+    let openBraces = 0;
+    let closeBraces = 0;
+
+    let inBlockComment = state.inBlockComment;
+    let inString = state.inString;
+    let inChar = state.inChar;
+    let escaped = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i] ?? "";
+      const next = line[i + 1] ?? "";
+
+      if (inBlockComment) {
+        if (ch === "*" && next === "/") {
+          inBlockComment = false;
+          i++;
+        }
+        continue;
+      }
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (inChar) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (ch === "'") {
+          inChar = false;
+        }
+        continue;
+      }
+
+      // 行注释：忽略剩余内容
+      if (ch === "/" && next === "/") {
+        break;
+      }
+
+      // 块注释开始
+      if (ch === "/" && next === "*") {
+        inBlockComment = true;
+        i++;
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === "'") {
+        inChar = true;
+        continue;
+      }
+
+      if (ch === "{") openBraces++;
+      if (ch === "}") closeBraces++;
+
+      code += ch;
+    }
+
+    return {
+      code,
+      openBraces,
+      closeBraces,
+      state: { inBlockComment, inString, inChar },
+    };
   }
 
   /**
@@ -508,4 +695,10 @@ export class JavaDocParser {
     const match = /package\s+([\w.]+);/.exec(text);
     return match?.[1] ?? "";
   }
+}
+
+interface ParseState {
+  readonly inBlockComment: boolean;
+  readonly inString: boolean;
+  readonly inChar: boolean;
 }

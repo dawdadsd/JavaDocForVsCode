@@ -11,14 +11,15 @@
  * 【解析流程】
  * TextDocument → Symbol树 → 扁平化方法列表 → 提取每个方法的Javadoc → ClassDoc
  */
-import type { TextDocument } from 'vscode';
-import type { ClassDoc } from '../types.js';
+import type { TextDocument } from "vscode";
+import type { ClassDoc } from "../types.js";
 /**
  * Javadoc 解析器类
  */
 export declare class JavaDocParser {
     private readonly javadocPattern;
     private readonly annotationPattern;
+    private readonly topLevelTypePattern;
     /**
      * 解析 Java 文档
      *
@@ -55,6 +56,14 @@ export declare class JavaDocParser {
      */
     private parseMethod;
     /**
+     * 解析单个字段
+     *
+     * @param text - 文件完整文本
+     * @param flattened - 扁平化后的字段符号
+     * @returns 字段文档，解析失败返回 null
+     */
+    private parseField;
+    /**
      * 提取完整的方法签名（处理跨行情况）
      * 返回从方法名到右括号的完整签名，去除换行符
      */
@@ -71,6 +80,10 @@ export declare class JavaDocParser {
      * @param targetLine - 目标行号（方法/类定义所在行）
      */
     private extractComment;
+    /**
+     * 判断一段代码是否仅由空行或注解（含多行注解参数）构成
+     */
+    private onlyBlankOrAnnotations;
     /**
      * 解析 Javadoc 内容
      *
@@ -104,6 +117,22 @@ export declare class JavaDocParser {
      * 从文本中提取类名（Symbol 解析失败时的降级方案）
      */
     private extractClassNameFromText;
+    /**
+     * 当符号解析失败时，从源码文本中提取“主类型”(top-level)信息
+     *
+     * - 只识别 braceDepth===0 的类型声明，避免误选内部类
+     * - 优先选择与文件名同名的类型（常见 Java 约定）
+     */
+    private extractPrimaryTypeInfoFromText;
+    /**
+     * 用于顶层扫描时剔除注释/字符串，避免 braceDepth 计算误差
+     */
+    private parseLineForStructure;
+    /**
+     * 从字段声明行提取类型
+     * 例如: "private static final int MAX_SIZE = 100;" -> "int"
+     */
+    private extractFieldType;
     /**
      * 提取包名
      */

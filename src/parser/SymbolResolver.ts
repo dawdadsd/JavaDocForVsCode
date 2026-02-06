@@ -58,7 +58,8 @@ export async function resolveSymbols(uri: Uri): Promise<DocumentSymbol[]> {
 export function isClassLikeSymbol(symbol: DocumentSymbol): boolean {
   return (
     symbol.kind === vscode.SymbolKind.Class ||
-    symbol.kind === vscode.SymbolKind.Interface
+    symbol.kind === vscode.SymbolKind.Interface ||
+    symbol.kind === vscode.SymbolKind.Enum
   );
 }
 

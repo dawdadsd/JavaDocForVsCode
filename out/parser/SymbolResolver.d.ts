@@ -15,7 +15,7 @@
  * 2. 可靠：泛型、注解、内部类等都能正确识别
  * 3. 省力：不需要自己写 Java 语法解析器
  */
-import type { DocumentSymbol, Uri } from 'vscode';
+import type { DocumentSymbol, Uri } from "vscode";
 /**
  * 获取文档中的所有符号
  *
@@ -36,3 +36,9 @@ export declare function isClassLikeSymbol(symbol: DocumentSymbol): boolean;
  * 检查符号是否是方法/构造函数
  */
 export declare function isMethodSymbol(symbol: DocumentSymbol): boolean;
+/**
+ * check symbol is field or constant
+ * @param symbol document symbol
+ * @returns boolean
+ */
+export declare function isFieldSymbol(symbol: DocumentSymbol): boolean;

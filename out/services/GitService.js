@@ -72,7 +72,7 @@ class GitService {
         }
         catch (error) {
             // Git 命令失败（可能不是 git 仓库）
-            console.debug('[GitService] Blame failed:', error);
+            console.debug("[GitService] Blame failed:", error);
             return null;
         }
     }
@@ -84,20 +84,20 @@ class GitService {
         const fileName = path.basename(filePath);
         // 先获取类声明行的最后修改者；即使后续 git log 失败也能回退展示。
         const lastModifier = await this.getBlameForLine(filePath, classLine);
-        let originalAuthor = '';
+        let originalAuthor = "";
         try {
             // 获取文件的第一次提交作者（原始作者）
             // 注意：不要用 "| tail -1" 之类的管道命令，Windows 默认 shell 不支持。
             const { stdout: logOutput } = await execAsync(`git log --follow --diff-filter=A --reverse -n 1 --format="%an|%ad" --date=short -- "${fileName}"`, { cwd: workDir, timeout: 5000 });
-            originalAuthor = logOutput.trim().split('|')[0] ?? '';
+            originalAuthor = logOutput.trim().split("|")[0] ?? "";
         }
         catch (error) {
-            console.debug('[GitService] Get original author failed:', error);
+            console.debug("[GitService] Get original author failed:", error);
         }
         return {
-            author: originalAuthor || lastModifier?.author || 'Unknown',
-            lastModifier: lastModifier?.author || 'Unknown',
-            lastModifyDate: lastModifier?.date || '',
+            author: originalAuthor || lastModifier?.author || "Unknown",
+            lastModifier: lastModifier?.author || "Unknown",
+            lastModifyDate: lastModifier?.date || "",
         };
     }
     /**
@@ -111,7 +111,7 @@ class GitService {
             const workDir = path.dirname(filePath);
             const fileName = path.basename(filePath);
             // 构建行范围参数
-            const lineArgs = lines.map(l => `-L ${l + 1},${l + 1}`).join(' ');
+            const lineArgs = lines.map((l) => `-L ${l + 1},${l + 1}`).join(" ");
             const { stdout } = await execAsync(`git blame ${lineArgs} --porcelain "${fileName}"`, { cwd: workDir, timeout: 10000 });
             // 解析多行输出
             const blocks = stdout.split(/(?=^[0-9a-f]{40})/m);
@@ -130,7 +130,7 @@ class GitService {
             }
         }
         catch (error) {
-            console.debug('[GitService] Batch blame failed:', error);
+            console.debug("[GitService] Batch blame failed:", error);
         }
         return result;
     }
@@ -140,24 +140,24 @@ class GitService {
     parseBlameOutput(output) {
         if (!output.trim())
             return null;
-        const lines = output.split('\n');
-        let author = '';
-        let email = '';
-        let date = '';
-        let commitHash = '';
+        const lines = output.split("\n");
+        let author = "";
+        let email = "";
+        let date = "";
+        let commitHash = "";
         for (const line of lines) {
             if (/^[0-9a-f]{40}/.test(line)) {
                 commitHash = line.slice(0, 40);
             }
-            else if (line.startsWith('author ')) {
+            else if (line.startsWith("author ")) {
                 author = line.slice(7);
             }
-            else if (line.startsWith('author-mail ')) {
-                email = line.slice(12).replace(/[<>]/g, '');
+            else if (line.startsWith("author-mail ")) {
+                email = line.slice(12).replace(/[<>]/g, "");
             }
-            else if (line.startsWith('author-time ')) {
+            else if (line.startsWith("author-time ")) {
                 const timestamp = parseInt(line.slice(12), 10);
-                date = new Date(timestamp * 1000).toISOString().split('T')[0] ?? '';
+                date = new Date(timestamp * 1000).toISOString().split("T")[0] ?? "";
             }
         }
         if (!author)
@@ -170,7 +170,10 @@ class GitService {
     async isGitRepository(filePath) {
         try {
             const workDir = path.dirname(filePath);
-            await execAsync('git rev-parse --git-dir', { cwd: workDir, timeout: 2000 });
+            await execAsync("git rev-parse --git-dir", {
+                cwd: workDir,
+                timeout: 2000,
+            });
             return true;
         }
         catch {
