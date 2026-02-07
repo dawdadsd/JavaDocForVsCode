@@ -1,4 +1,3 @@
-import { JavaDocParser } from "./parser/JavaDocParser";
 /**
  * extension.ts - 扩展入口文件
  *
@@ -22,6 +21,7 @@ import * as vscode from "vscode";
 import type { Disposable } from "vscode";
 import { SidebarProvider } from "./SidebarProvider.js";
 import { clearAllSymbolCache, clearSymbolCache } from "./parser/SymbolResolver.js";
+import { isSupportedLanguage } from "./types.js";
 /**
  * 扩展激活函数
  *
@@ -36,8 +36,6 @@ export function activate(context: vscode.ExtensionContext): void {
   console.log("[JavaDocSidebar] Extension is now active!");
   //register WebViewProvider for sidebar and panel
   const sidebarProvider = new SidebarProvider(context.extensionUri);
-  const panelProvider = new SidebarProvider(context.extensionUri);
-
   //left bar view create
   const viewProviderDisposable = vscode.window.registerWebviewViewProvider(
     "javaDocSidebar",
@@ -48,33 +46,20 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     },
   );
-
-  // down panel view create
-  const panelProviderDisposable = vscode.window.registerWebviewViewProvider(
-    "JavaDocParserSidebar",
-    panelProvider,
-    {
-      webviewOptions: {
-        retainContextWhenHidden: true,
-      },
-    },
-  );
-
   // this three method is register event listeners
 
-  const saveListener = createSaveListener(sidebarProvider, panelProvider);
+  const saveListener = createSaveListener(sidebarProvider);
 
   const editorChangeListener = createEditorChangeListener(
     sidebarProvider,
-    panelProvider,
   );
 
   const selectionListener = createSelectionListener(
     sidebarProvider,
-    panelProvider,
+
   );
 
-  const closeListener = createCloseListene();
+  const closeListener = createCloseListener();
 
   // register command for refresh future
 
@@ -82,20 +67,18 @@ export function activate(context: vscode.ExtensionContext): void {
     "javaDocSidebar.refresh",
     () => {
       void sidebarProvider.refresh();
-      void panelProvider.refresh();
     },
   );
 
   // register for subscriptions to auto dispose
   context.subscriptions.push(
     viewProviderDisposable,
-    panelProviderDisposable,
     saveListener,
     editorChangeListener,
     selectionListener,
+    closeListener,
     refreshCommand,
-    sidebarProvider,
-    panelProvider,
+    sidebarProvider
   );
 }
 
@@ -104,13 +87,11 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 function createSaveListener(
   provider: SidebarProvider,
-  panelProvider: SidebarProvider,
 ): Disposable {
   return vscode.workspace.onDidSaveTextDocument((document) => {
     //TODO : More languages ​​will be supported in the future
-    if (document.languageId === "java") {
+    if (isSupportedLanguage(document.languageId)) {
       void provider.refresh(document);
-      void panelProvider.refresh(document);
     }
   });
 }
@@ -121,15 +102,13 @@ function createSaveListener(
  */
 function createEditorChangeListener(
   provider: SidebarProvider,
-  panelProvider: SidebarProvider,
 ): Disposable {
   return vscode.window.onDidChangeActiveTextEditor((editor) => {
-    if (editor?.document.languageId === "java") {
+    const languageId = editor?.document.languageId;
+    if (languageId && isSupportedLanguage(languageId)) {
       void provider.refresh(editor.document);
-      void panelProvider.refresh(editor.document);
     } else {
       provider.clearView();
-      panelProvider.clearView();
     }
   });
 }
@@ -141,18 +120,17 @@ function createEditorChangeListener(
  */
 function createSelectionListener(
   provider: SidebarProvider,
-  panelProvider: SidebarProvider,
 ): Disposable {
   return vscode.window.onDidChangeTextEditorSelection((event) => {
-    if (event.textEditor.document.languageId === "java") {
+    const languageId = event.textEditor.document.languageId;
+    if (isSupportedLanguage(languageId)) {
       const line = event.selections[0]?.active.line ?? 0;
       provider.handleSelectionChange(line);
-      panelProvider.handleSelectionChange(line);
     }
   });
 }
 
-function createCloseListene(): Disposable {
+function createCloseListener(): Disposable {
   return vscode.workspace.onDidCloseTextDocument((document) => {
     clearSymbolCache(document.uri);
   })

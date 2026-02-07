@@ -20,6 +20,7 @@ const CLASS_LIKE_KINDS: ReadonlySet<vscode.SymbolKind> = new Set([
 const METHOD_KINDS: ReadonlySet<vscode.SymbolKind> = new Set([
   vscode.SymbolKind.Method,
   vscode.SymbolKind.Constructor,
+  vscode.SymbolKind.Function
 ]);
 
 const FIELD_KINDS: ReadonlySet<vscode.SymbolKind> = new Set([

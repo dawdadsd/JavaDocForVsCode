@@ -3,10 +3,7 @@
  * @authro xiaowu
  * @since 2026/02/
  */
-
-import { SrvRecord } from "dns";
 import { DocumentSymbol } from "vscode";
-
 /**
  * brand Types
  * example :
@@ -258,3 +255,15 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   debounceDelay: 300,
   maxMethods: 200,
 } as const satisfies ExtensionConfig;
+
+export type SupportedLanguageId = "java" | "typescript" | "javascript";
+
+const SUPPORTED_LANGUAGE_IDS: Set<string> = new Set([
+  "java",
+  "typescript",
+  "javascript",
+]);
+
+export function isSupportedLanguage(languageId: string): languageId is SupportedLanguageId {
+  return SUPPORTED_LANGUAGE_IDS.has(languageId as SupportedLanguageId);
+}
