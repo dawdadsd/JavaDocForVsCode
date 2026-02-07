@@ -1,8 +1,8 @@
 {
   "name": "javadoc-sidebar",
-  "displayName": "JavaDoc Sidebar",
-  "description": "在侧边栏实时展示 Java 文件的 Javadoc 文档，支持双向联动导航",
-  "version": "0.6.0",
+  "displayName": "Doc Sidebar",
+  "description": "在侧边栏实时展示代码文档，支持 Java / TypeScript / JavaScript，支持双向联动导航",
+  "version": "0.7.0",
   "publisher": "your-name",
   "license": "MIT",
   "engines": {
@@ -13,13 +13,17 @@
     "Other"
   ],
   "keywords": [
-    "java",
-    "javadoc",
+    "doc",
     "documentation",
-    "sidebar"
+    "sidebar",
+    "java",
+    "typescript",
+    "javascript"
   ],
   "activationEvents": [
-    "onLanguage:java"
+    "onLanguage:java",
+    "onLanguage:typescript",
+    "onLanguage:javascript"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -27,14 +31,7 @@
       "activitybar": [
         {
           "id": "javaDocExplorer",
-          "title": "JavaDoc",
-          "icon": "media/icon.svg"
-        }
-      ],
-      "panel": [
-        {
-          "id": "javaDocPanel",
-          "title": "JavaDoc",
+          "title": "Doc Sidebar",
           "icon": "media/icon.svg"
         }
       ]
@@ -42,28 +39,22 @@
     "views": {
       "javaDocExplorer": [
         {
+          "icon": "media/icon.svg",
           "type": "webview",
           "id": "javaDocSidebar",
-          "name": "方法文档"
-        }
-      ],
-      "javaDocPanel": [
-        {
-          "type": "webview",
-          "id": "javaDocSidebarPanel",
-          "name": "JavaDoc 方法文档"
+          "name": "文档导航"
         }
       ]
     },
     "commands": [
       {
         "command": "javaDocSidebar.refresh",
-        "title": "刷新 JavaDoc 侧边栏",
+        "title": "刷新文档侧边栏",
         "icon": "$(refresh)"
       }
     ],
     "configuration": {
-      "title": "JavaDoc Sidebar",
+      "title": "Doc Sidebar",
       "properties": {
         "javaDocSidebar.enableAutoHighlight": {
           "type": "boolean",
